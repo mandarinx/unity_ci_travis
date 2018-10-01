@@ -1,0 +1,146 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+fastlane_version "2.105.2"
+xcode_select "/Applications/Xcode.app"
+default_platform(:ios)
+
+app_identifier = "com.bundle.identifier"
+team_id = "123ABC"
+codesigning_identity = "iPhone Distribution: YOUR NAME (" + team_id + ")"
+xcodeproj = "Unity-iPhone.xcodeproj"
+ipa_name = "MyGame"
+
+platform :ios do
+
+  after_all do |lane|
+    delete_keychain(
+      name: ENV["MATCH_KEYCHAIN_NAME"]
+    )
+  end
+
+  desc "Push a new beta build to TestFlight"
+  lane :beta do |options|
+
+    ENV["MATCH_KEYCHAIN_PASSWORD"] = ""
+
+    def ensure_temp_keychain(name)
+      if File.exist?(File.expand_path("~/Library/Keychains/#{name}-db"))
+        delete_keychain(
+          name: name
+        )
+      end
+      create_keychain(
+        name: name,
+        password: "",
+        unlock: true,
+        timeout: 3600,
+        lock_when_sleeps: true,
+        default_keychain: true,
+        verbose: true
+      )
+    end
+
+    disable_automatic_code_signing(
+      path: options[:project_path] + xcodeproj,
+      team_id: team_id
+    )
+
+    set_info_plist_value(
+      path: options[:project_path] + "Info.plist",
+      key: "ITSAppUsesNonExemptEncryption",
+      value: false
+    )
+
+    set_info_plist_value(
+      path: options[:project_path] + "Info.plist",
+      key: "CFBundleShortVersionString",
+      value: options[:build_number].to_s
+    )
+
+    set_info_plist_value(
+      path: options[:project_path] + "Info.plist",
+      key: "CFBundleVersion",
+      value: options[:build_number].to_s
+    )
+
+    ensure_temp_keychain(ENV["MATCH_KEYCHAIN_NAME"])
+
+    match(
+      readonly: true,
+      clone_branch_directly: true,
+      type: "appstore",
+      force_for_new_devices: true,
+      verbose: false
+    )
+
+    update_project_provisioning(
+      xcodeproj: options[:project_path] + xcodeproj,
+      target_filter: "Unity-iPhone",
+      profile: ENV["sigh_BUNDLE_ID_appstore_profile-path"],
+      build_configuration: "Debug",
+      code_signing_identity: codesigning_identity
+    )
+
+    gym(
+      silent: true,
+      clean: true,
+      scheme: "Unity-iPhone",
+      project: options[:project_path] + xcodeproj,
+      configuration: "Debug",
+      output_name: ipa_name,
+      skip_profile_detection: true,
+      export_team_id: team_id,
+      codesigning_identity: codesigning_identity,
+      export_method: "app-store", # ad-hoc
+      export_options:{
+        compileBitcode: false,
+        signingStyle: "manual",
+        provisioningProfiles: {
+          "no.mandarin.travistest": ENV["sigh_BUNDLE_ID_appstore_profile-name"]
+        }
+      }
+    )
+
+    pilot(
+      ipa: ipa_name + ".ipa",
+      changelog: ENV["TRAVIS_COMMIT_MESSAGE"],
+      distribute_external: true,
+      notify_external_testers: true
+    )
+
+    slack(
+      message: "Build succeeded",
+      success: true,
+      payload: {
+        "Version" => options[:build_number].to_s,
+      },
+      # Optional, lets you specify a whitelist of default payloads to include.
+      # Pass an empty array to suppress all the default payloads.
+      # Don't add this key, or pass nil, if you want all the default payloads.
+      # The available default payloads are: `lane`, `test_result`, `git_branch`,
+      # `git_author`, `last_git_commit_message`, `last_git_commit_hash`.
+      default_payloads: [:last_git_commit_message],
+    )
+  end
+
+  desc "Synchronize certificates"
+  lane :certificates do
+    match(
+      git_branch: "branch_name",
+      app_identifier: ["com.bundle.identifier"],
+      readonly: true,
+      clone_branch_directly: true
+    )
+  end
+
+end

@@ -1,0 +1,10 @@
+git_url("git@github.com:user/certs-repo.git")
+git_branch("branch_name")
+
+type("appstore") # The default type, can be: appstore, adhoc, enterprise or development
+
+app_identifier("com.bundle.identifier")
+username("user@domain.com") # Your Apple Developer Portal username
+
+# For all available options run `fastlane match --help`
+# Remove the # in the beginning of the line to enable the other options
