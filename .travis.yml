@@ -17,7 +17,7 @@ notifications:
 
 cache:
   directories:
-  - $UNITY_DOWNLOAD_CACHE
+  - unity_download_cache
 
 before_install:
   - openssl enc -aes-256-cbc -a -d -in setup_ssh.sh.enc -out ./Scripts/setup_ssh.sh -k ${ENCRYPTION_KEY}

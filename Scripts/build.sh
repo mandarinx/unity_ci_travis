@@ -90,11 +90,17 @@ fastlaneRun() {
 
 # ------------------------------------------------------------------------------
 
-activateLicense
-unitTests
-prepareBuilds
-buildiOS
-returnLicense
-fastlaneRun
+# if environment variable CI is not set
+if [ -z "${CI}" ]; then
+    buildiOS
+    fastlaneRun
+else
+    activateLicense
+    unitTests
+    prepareBuilds
+    buildiOS
+    returnLicense
+    fastlaneRun
+fi
 
 exit 0
