@@ -20,6 +20,7 @@ cache:
   - unity_download_cache
 
 before_install:
+  - chmod -R a+rw ./unity_download_cache
   - openssl enc -aes-256-cbc -a -d -in setup_ssh.sh.enc -out ./Scripts/setup_ssh.sh -k ${ENCRYPTION_KEY}
   - chmod +x ./Scripts/setup_ssh.sh
   - . ./Scripts/setup_ssh.sh
